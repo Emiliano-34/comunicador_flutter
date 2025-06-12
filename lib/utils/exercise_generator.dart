@@ -1,72 +1,72 @@
-// 📄 lib/utils/exercise_generator.dart
-
 import '../models/exercise.dart';
 import '../models/user_profile.dart';
 
-/// Genera dinámicamente una lista de ejercicios según el perfil
 List<Exercise> generateExercises(UserProfile profile) {
-  final list = <Exercise>[];
+  // ─── Ejercicio: Colores
+  const colores = ['azul', 'amarillo', 'verde'];
+  const assetColores = [
+    'assets/images/square.png',
+    'assets/images/triangle.png',
+    'assets/images/circle.png',
+  ];
+  final roundsColores = List<Round>.generate(
+    colores.length,
+    (i) => Round(
+      question: '¿Qué figura es de color ${colores[i]}?',
+      assets: assetColores,
+      options: ['Cuadrado', 'Triángulo', 'Círculo'],
+      correctIndex: i,
+    ),
+  );
 
-  // 1) Ejercicio de Colores (se manejará en 3 rondas en ExerciseScreen)
-  list.add(const Exercise(
-    title: 'Colores',
-    question: '¿Cuál es el cuadrado?', // primera ronda
-    assets: [
-      'assets/images/triangle.png',
-      'assets/images/circle.png',
-      'assets/images/square.png',
-    ],
-    correctIndex: 2,
-  ));
+  // ─── Ejercicio: Animales
+  const animales = ['gato', 'perro', 'pájaro'];
+  const assetAnimales = [
+    'assets/images/cat.png',
+    'assets/images/dog.png',
+    'assets/images/bird.png',
+  ];
+  final roundsAnimales = List<Round>.generate(
+    animales.length,
+    (i) => Round(
+      question: '¿Dónde está el ${animales[i]}?',
+      assets: assetAnimales,
+      options: ['Gato', 'Perro', 'Pájaro'],
+      correctIndex: i,
+    ),
+  );
 
-  // 2) Ejercicio de Contar (si es Verbal o conoce muchas palabras)
-  if (profile.nivelHabla == 'Verbal' ||
-      (profile.palabrasConocidas?.startsWith('+') ?? false)) {
-    list.add(const Exercise(
-      title: 'Contar',
-      question: '¿Cuántos corazones hay?',
-      assets: [
-        'assets/images/heart.png',
-        'assets/images/heart.png',
-        'assets/images/heart.png',
-      ],
-      correctIndex: 3, // interpretamos “3 corazones”
-    ));
-  }
+  // ─── Ejercicio: Ropa
+  const prendas = ['camisa', 'pantalones', 'sombrero'];
+  const assetRopa = [
+    'assets/images/shirt.png',
+    'assets/images/pants.png',
+    'assets/images/hat.png',
+  ];
+  final roundsRopa = List<Round>.generate(
+    prendas.length,
+    (i) => Round(
+      question: '¿Cuál es la ${prendas[i]}?',
+      assets: assetRopa,
+      options: ['Camisa', 'Pantalones', 'Sombrero'],
+      correctIndex: i,
+    ),
+  );
 
-  // 3) Ejercicio Animales (siempre disponible)
-  list.add(const Exercise(
-    title: 'Animales',
-    question: '¿Dónde está el gato?',
-    assets: [
-      'assets/images/cat.png',
-      'assets/images/dog.png',
-      'assets/images/bird.png',
-    ],
-    correctIndex: 0,
-  ));
+  // ─── Ejercicio: Planas de tu nombre (ejemplo: "Lucas")
+  const nombre = 'Lucas';
+  final roundsPlana = List<Round>.generate(
+    5,
+    (i) => Round(
+      question: 'Escribe tu nombre: intento ${i + 1}',
+      expectedAnswer: nombre,
+    ),
+  );
 
-  // 4) Ejercicio de Ropa (siempre disponible)
-  list.add(const Exercise(
-    title: 'Ropa',
-    question: '¿Cuál es la camisa?',
-    assets: [
-      'assets/images/shirt.png',
-      'assets/images/pants.png',
-      'assets/images/hat.png',
-    ],
-    correctIndex: 0,
-  ));
-
-  // 5) Ejercicio “Tu nombre” (solo si puede decir su nombre)
-  if (profile.puedeDecirNombre == true) {
-    list.add(const Exercise(
-      title: 'Tu nombre',
-      question: '¿Cómo te llamas?',
-      assets: [], // activa la entrada de texto
-      correctIndex: 0,
-    ));
-  }
-
-  return list;
+  return [
+    Exercise(title: 'Colores', rounds: roundsColores),
+    Exercise(title: 'Animales', rounds: roundsAnimales),
+    Exercise(title: 'Ropa', rounds: roundsRopa),
+    Exercise(title: 'Planas de tu nombre', rounds: roundsPlana),
+  ];
 }

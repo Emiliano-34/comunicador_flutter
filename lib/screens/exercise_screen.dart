@@ -1,156 +1,209 @@
 import 'package:flutter/material.dart';
+import '../models/exercise.dart';
 import '../services/tts_service.dart';
 
 class ExerciseScreen extends StatefulWidget {
-  final List<String> assets;
-  final String question;
-  final int correctIndex;
-  final String title; // añadimos título para lógica especial
+  /// Lista completa de ejercicios (cada uno con sus rondas).
+  final List<Exercise> exercises;
+
+  /// Índice del ejercicio inicial dentro de esa lista.
+  final int initialExerciseIndex;
 
   const ExerciseScreen({
-    super.key,
-    required this.assets,
-    required this.question,
-    required this.correctIndex,
-    this.title = '',
-  });
+    Key? key,
+    required this.exercises,
+    this.initialExerciseIndex = 0,
+  }) : super(key: key);
 
   @override
   State<ExerciseScreen> createState() => _ExerciseScreenState();
 }
 
 class _ExerciseScreenState extends State<ExerciseScreen> {
+  late int _exerciseIndex;
+  int _roundIndex = 0;
+  bool _answered = false;
   final TtsService _tts = TtsService();
-  String feedback = '';
-  String? textAnswer;
-
-  // ✨ Para Colores: definimos 3 rondas
-  final _colorRounds = [
-    {
-      'question': '¿Cuál es el cuadrado?',
-      'assets': [
-        'assets/images/triangle.png',
-        'assets/images/circle.png',
-        'assets/images/square.png',
-      ],
-      'correct': 2
-    },
-    {
-      'question': '¿Cuál es el círculo?',
-      'assets': [
-        'assets/images/square.png',
-        'assets/images/circle.png',
-        'assets/images/triangle.png',
-      ],
-      'correct': 1
-    },
-    {
-      'question': '¿Cuál es el triángulo?',
-      'assets': [
-        'assets/images/circle.png',
-        'assets/images/triangle.png',
-        'assets/images/square.png',
-      ],
-      'correct': 1
-    },
-  ];
-  int _currentRound = 0;
+  String _userInput = '';
 
   @override
   void initState() {
     super.initState();
-    _tts.speak(widget.question);
+    _exerciseIndex = widget.initialExerciseIndex;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _speakCurrentQuestion());
   }
 
-  void _submitText() {
-    if ((textAnswer ?? '').trim().isEmpty) return;
-    _tts.speak('Te llamas ${textAnswer!.trim()}');
-    setState(() {
-      feedback = '¡Genial, $textAnswer!';
-    });
+  void _speakCurrentQuestion() {
+    final round = widget.exercises[_exerciseIndex].rounds[_roundIndex];
+    _tts.speak(round.question);
   }
 
-  void _selectImage(int index) {
-    final correctIndex = (widget.title == 'Colores')
-        ? _colorRounds[_currentRound]['correct'] as int
-        : widget.correctIndex;
-
-    if (index == correctIndex) {
-      _tts.speak('¡Muy bien!');
+  void _next() {
+    final rounds = widget.exercises[_exerciseIndex].rounds;
+    if (_roundIndex < rounds.length - 1) {
       setState(() {
-        feedback = '✅ Correcto';
+        _roundIndex++;
+        _answered = false;
+        _userInput = '';
       });
-
-      // Si es Colores, avanzamos ronda
-      if (widget.title == 'Colores' && _currentRound < _colorRounds.length - 1) {
-        Future.delayed(const Duration(milliseconds: 800), () {
-          setState(() {
-            _currentRound++;
-            feedback = '';
-          });
-          final next = _colorRounds[_currentRound];
-          _tts.speak(next['question'] as String);
-        });
-      }
     } else {
-      _tts.speak('Intenta otra vez');
       setState(() {
-        feedback = '❌ Incorrecto';
+        _roundIndex = 0;
+        _exerciseIndex = (_exerciseIndex + 1) % widget.exercises.length;
+        _answered = false;
+        _userInput = '';
       });
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _speakCurrentQuestion());
+  }
+
+  void _handleAnswer(int selected) {
+    if (_answered) return;
+    setState(() => _answered = true);
+
+    final round = widget.exercises[_exerciseIndex].rounds[_roundIndex];
+    final isCorrect = selected == round.correctIndex;
+    final msg = isCorrect ? '¡Correcto!' : 'Intenta de nuevo';
+    final color = isCorrect ? Colors.green : Colors.red;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: color,
+        duration: const Duration(milliseconds: 800),
+      ),
+    );
+    _tts.speak(msg);
+
+    Future.delayed(const Duration(milliseconds: 900), _next);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Si este es el ejercicio Colores, tomamos datos de la ronda actual:
-    final isColor = widget.title == 'Colores';
-    final question = isColor
-        ? _colorRounds[_currentRound]['question'] as String
-        : widget.question;
-    final assets = isColor
-        ? List<String>.from(_colorRounds[_currentRound]['assets'] as List)
-        : widget.assets;
+    final exercise = widget.exercises[_exerciseIndex];
+    final round = exercise.rounds[_roundIndex];
+    final primary = Theme.of(context).colorScheme.primary;
+
+    final isPlana = round.expectedAnswer != null;
 
     return Scaffold(
-      backgroundColor: Colors.indigo.shade50,
-      appBar: AppBar(title: Text(widget.title)),
+      appBar: AppBar(
+        title: Text(exercise.title),
+        centerTitle: true,
+        backgroundColor: primary,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.volume_up),
+            onPressed: _speakCurrentQuestion,
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            Text(question, style: const TextStyle(fontSize: 24)),
-            const SizedBox(height: 20),
+            // Progreso
+            LinearProgressIndicator(
+              value: (_roundIndex + 1) / exercise.rounds.length,
+              color: primary,
+              backgroundColor: primary.withOpacity(0.2),
+              minHeight: 6,
+            ),
+            const SizedBox(height: 24),
 
-            if (widget.assets.isEmpty) ...[
-              // Ejercicio de texto
-              TextField(
-                decoration: const InputDecoration(
-                  labelText: 'Escribe aquí tu nombre',
-                  border: OutlineInputBorder(),
-                ),
-                onChanged: (v) => textAnswer = v,
-              ),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: _submitText,
-                child: const Text('Enviar'),
-              ),
-            ] else ...[
-              // Ejercicio de imágenes
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: List.generate(
-                  assets.length,
-                  (i) => GestureDetector(
-                    onTap: () => _selectImage(i),
-                    child: Image.asset(assets[i], width: 100),
+            // Pregunta
+            Text(
+              round.question,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 24),
+
+            // Si es tipo plana, mostrar input de texto
+            if (isPlana)
+              Column(
+                children: [
+                  TextField(
+                    onChanged: (value) => _userInput = value,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: 'Tu respuesta',
+                    ),
                   ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _answered
+                        ? null
+                        : () {
+                            final isCorrect = _userInput.trim().toLowerCase() ==
+                                round.expectedAnswer!.toLowerCase();
+
+                            setState(() => _answered = true);
+
+                            final msg = isCorrect ? '¡Correcto!' : 'Intenta de nuevo';
+                            final color = isCorrect ? Colors.green : Colors.red;
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(msg),
+                                backgroundColor: color,
+                                duration: const Duration(milliseconds: 800),
+                              ),
+                            );
+                            _tts.speak(msg);
+
+                            Future.delayed(const Duration(milliseconds: 900), _next);
+                          },
+                    child: const Text('Responder'),
+                  ),
+                ],
+              )
+            else
+              Expanded(
+                child: GridView.builder(
+                  itemCount: round.assets.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 16,
+                    crossAxisSpacing: 16,
+                    childAspectRatio: 1,
+                  ),
+                  itemBuilder: (context, i) {
+                    final bgColor = !_answered
+                        ? Colors.white
+                        : (i == round.correctIndex
+                            ? Colors.green.shade100
+                            : Colors.white);
+
+                    return GestureDetector(
+                      onTap: () => _handleAnswer(i),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: bgColor,
+                          border: Border.all(color: primary),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.all(8),
+                        child: Column(
+                          children: [
+                            Expanded(
+                              child: Image.asset(
+                                round.assets[i],
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              round.options[i],
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
-            ],
-
-            const SizedBox(height: 30),
-            Text(feedback, style: const TextStyle(fontSize: 22)),
           ],
         ),
       ),
