@@ -1,5 +1,7 @@
-// 📄 lib/models/user_profile.dart
+// lib/models/user_profile.dart
+
 class UserProfile {
+  String? nombre;
   String? edad;
   String? nivelHabla;
   String? palabrasConocidas;
@@ -10,5 +12,16 @@ class UserProfile {
   bool? comprendeLoQueEscucha;
   bool? respondeAlNombre;
 
-  UserProfile();
+  UserProfile({
+    this.nombre,
+    this.edad,
+    this.nivelHabla,
+    this.palabrasConocidas,
+    this.comprendeOrden,
+    this.comprendeTiempo,
+    this.puedeDecirNombre,
+    this.sigueInstrucciones,
+    this.comprendeLoQueEscucha,
+    this.respondeAlNombre,
+  });
 }

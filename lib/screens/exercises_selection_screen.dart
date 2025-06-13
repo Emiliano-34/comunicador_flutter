@@ -1,75 +1,85 @@
-// lib/screens/exercises_selection_screen.dart
-
 import 'package:flutter/material.dart';
-import '../models/user_profile.dart';
-import '../models/exercise.dart';
+import '../../models/user_profile.dart';
 import '../utils/exercise_generator.dart';
+import 'trace_name_screen.dart';
 import 'exercise_screen.dart';
+import 'face_assembly_screen.dart';
 
 class ExercisesSelectionScreen extends StatelessWidget {
   final UserProfile profile;
-  const ExercisesSelectionScreen({Key? key, required this.profile})
-      : super(key: key);
+  const ExercisesSelectionScreen({Key? key, required this.profile}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final exercises = generateExercises(profile);
-    final primary = Theme.of(context).colorScheme.primary;
+    final colorPrimary = Theme.of(context).colorScheme.primary;
+
+    // Genera todos los ejercicios para este perfil
+    final allExercises = generateExercises(profile);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Elige un ejercicio'),
-        centerTitle: true,
-        backgroundColor: primary,
+        title: const Text('Selecciona un ejercicio'),
+        backgroundColor: colorPrimary,
       ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-        child: ListView.separated(
-          itemCount: exercises.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, index) {
-            final ex = exercises[index];
-            return Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // ── 1) Trazar el nombre ────────────────────────────────
+          Card(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            elevation: 2,
+            child: ListTile(
+              leading: Icon(Icons.edit, color: colorPrimary),
+              title: const Text('Trazar mi nombre'),
+              subtitle: const Text('Dibuja tu nombre con el dedo'),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => TraceNameScreen(name: profile.nombre ?? ''),
+                ),
               ),
-              elevation: 2,
-              child: ListTile(
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                leading: CircleAvatar(
-                  backgroundColor: primary,
-                  child: Text(
-                    '${index + 1}',
-                    style: const TextStyle(color: Colors.white),
-                  ),
+            ),
+          ),
+
+          // ── 2) Armar una cara ───────────────────────────────────
+          Card(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            elevation: 2,
+            child: ListTile(
+              leading: Icon(Icons.face, color: colorPrimary),
+              title: const Text('Armar una cara'),
+              subtitle: const Text('Arrastra ojos, nariz y boca'),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => FaceAssemblyScreen(profile: profile),
                 ),
-                title: Text(
-                  ex.title,
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                subtitle: Text(
-                  ex.rounds.first.question,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                trailing: Icon(Icons.arrow_forward_ios, color: primary),
-                onTap: () {
-                  Navigator.push(
+              ),
+            ),
+          ),
+
+          // ── 3) Ejercicios de selección de imágenes ────────────────
+          ...allExercises.map((exercise) => Card(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 2,
+                child: ListTile(
+                  leading: Icon(Icons.image, color: colorPrimary),
+                  title: Text(exercise.title),
+                  onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => ExerciseScreen(
-                        exercises: exercises,
-                        initialExerciseIndex: index,
+                        exercises: [exercise],
+                        initialExerciseIndex: 0,
                       ),
                     ),
-                  );
-                },
-              ),
-            );
-          },
-        ),
+                  ),
+                ),
+              )),
+        ],
       ),
     );
   }
