@@ -1,11 +1,18 @@
 // lib/screens/face_assembly_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/user_profile.dart';
 
 class FaceAssemblyScreen extends StatefulWidget {
   final UserProfile profile;
-  const FaceAssemblyScreen({Key? key, required this.profile}) : super(key: key);
+  final String profileId;  // ← Nuevo parámetro
+  const FaceAssemblyScreen({
+    Key? key,
+    required this.profile,
+    required this.profileId,
+  }) : super(key: key);
 
   @override
   FaceAssemblyScreenState createState() => FaceAssemblyScreenState();
@@ -46,14 +53,31 @@ class FaceAssemblyScreenState extends State<FaceAssemblyScreen> {
     });
   }
 
-  // Evalúa si todas las piezas están colocadas
-  void _evaluate() {
+  // Evalúa si todas las piezas están colocadas y guarda el resultado
+  Future<void> _evaluate() async {
     setState(() {
       _attempts++;
-      final complete = _placed.values.every((v) => v);
+    });
+    final complete = _placed.values.every((v) => v);
+
+    // Guardar resultado en Firestore
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+    await FirebaseFirestore.instance
+        .collection('usuarios')
+        .doc(uid)
+        .collection('perfiles')
+        .doc(widget.profileId)
+        .collection('puntuaciones')
+        .add({
+      'tipo': 'armar_cara',
+      'timestamp': FieldValue.serverTimestamp(),
+      'passed': complete,
+      'intentos': _attempts,
+    });
+
+    setState(() {
       if (complete) {
-        _evaluationResult =
-            '¡Bien hecho! Cara completa en $_attempts intento(s).';
+        _evaluationResult = '¡Bien hecho! Cara completa en $_attempts intento(s).';
       } else {
         final missing = _placed.entries
             .where((e) => !e.value)
@@ -77,7 +101,7 @@ class FaceAssemblyScreenState extends State<FaceAssemblyScreen> {
             icon: const Icon(Icons.delete),
             tooltip: 'Reiniciar',
             onPressed: _clear,
-          )
+          ),
         ],
       ),
       body: Column(
@@ -159,8 +183,7 @@ class FaceAssemblyScreenState extends State<FaceAssemblyScreen> {
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
-                onPressed:
-                    _placed.values.every((v) => v) ? _evaluate : null,
+                onPressed: _placed.values.every((v) => v) ? _evaluate : null,
                 child: const Text('Evaluar', style: TextStyle(fontSize: 18)),
               ),
             ),
@@ -171,16 +194,13 @@ class FaceAssemblyScreenState extends State<FaceAssemblyScreen> {
           // ── Mensaje de resultado ───────────────────────────────────
           if (_evaluationResult != null)
             Padding(
-              padding:
-                  const EdgeInsets.only(bottom: 24, left: 24, right: 24),
+              padding: const EdgeInsets.only(bottom: 24, left: 24, right: 24),
               child: Text(
                 _evaluationResult!,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 16,
-                  color: _evaluationResult!.startsWith('¡Bien')
-                      ? Colors.green
-                      : Colors.red,
+                  color: _evaluationResult!.startsWith('¡Bien') ? Colors.green : Colors.red,
                 ),
               ),
             ),
@@ -201,14 +221,13 @@ class FaceAssemblyScreenState extends State<FaceAssemblyScreen> {
       left: left,
       bottom: bottom,
       child: Builder(builder: (context) {
-        // Capturamos el primary dentro del Builder para que exista aquí
         final cp = Theme.of(context).colorScheme.primary;
         return DragTarget<String>(
           onWillAcceptWithDetails: (details) {
             setState(() => _hovering[keyName] = true);
             return details.data == keyName;
           },
-          onLeave: (data) {
+          onLeave: (_) {
             setState(() => _hovering[keyName] = false);
           },
           onAcceptWithDetails: (details) {

@@ -1,30 +1,33 @@
+// lib/screens/exercise_screen.dart
+
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/exercise.dart';
 import '../services/tts_service.dart';
 
 class ExerciseScreen extends StatefulWidget {
-  /// Lista completa de ejercicios (cada uno con sus rondas).
   final List<Exercise> exercises;
-
-  /// Índice del ejercicio inicial dentro de esa lista.
   final int initialExerciseIndex;
+  final String profileId;
 
   const ExerciseScreen({
     Key? key,
     required this.exercises,
     this.initialExerciseIndex = 0,
+    required this.profileId,
   }) : super(key: key);
 
   @override
-  State<ExerciseScreen> createState() => _ExerciseScreenState();
+  _ExerciseScreenState createState() => _ExerciseScreenState();
 }
 
 class _ExerciseScreenState extends State<ExerciseScreen> {
   late int _exerciseIndex;
   int _roundIndex = 0;
   bool _answered = false;
-  final TtsService _tts = TtsService();
   String _userInput = '';
+  final TtsService _tts = TtsService();
 
   @override
   void initState() {
@@ -34,57 +37,58 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
   }
 
   void _speakCurrentQuestion() {
-    final round = widget.exercises[_exerciseIndex].rounds[_roundIndex];
-    _tts.speak(round.question);
+    final question = widget.exercises[_exerciseIndex].rounds[_roundIndex].question;
+    _tts.speak(question);
   }
 
-  void _next() {
+  Future<void> _next() async {
     final rounds = widget.exercises[_exerciseIndex].rounds;
+    final isLast = _roundIndex == rounds.length - 1;
+
+    if (isLast) {
+      final passed = _answered;
+      final uid = FirebaseAuth.instance.currentUser!.uid;
+
+      await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(uid)
+          .collection('perfiles')
+          .doc(widget.profileId)
+          .collection('puntuaciones')
+          .add({
+        'tipo': 'ejercicio_${widget.exercises[_exerciseIndex].title}',
+        'timestamp': FieldValue.serverTimestamp(),
+        'passed': passed,
+      });
+    }
+
     if (_roundIndex < rounds.length - 1) {
       setState(() {
         _roundIndex++;
         _answered = false;
         _userInput = '';
       });
-    } else {
+      _speakCurrentQuestion();
+    }
+  }
+
+  void _previous() {
+    if (_roundIndex > 0) {
       setState(() {
-        _roundIndex = 0;
-        _exerciseIndex = (_exerciseIndex + 1) % widget.exercises.length;
+        _roundIndex--;
         _answered = false;
         _userInput = '';
       });
+      _speakCurrentQuestion();
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) => _speakCurrentQuestion());
-  }
-
-  void _handleAnswer(int selected) {
-    if (_answered) return;
-    setState(() => _answered = true);
-
-    final round = widget.exercises[_exerciseIndex].rounds[_roundIndex];
-    final isCorrect = selected == round.correctIndex;
-    final msg = isCorrect ? '¡Correcto!' : 'Intenta de nuevo';
-    final color = isCorrect ? Colors.green : Colors.red;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: color,
-        duration: const Duration(milliseconds: 800),
-      ),
-    );
-    _tts.speak(msg);
-
-    Future.delayed(const Duration(milliseconds: 900), _next);
   }
 
   @override
   Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
     final exercise = widget.exercises[_exerciseIndex];
     final round = exercise.rounds[_roundIndex];
-    final primary = Theme.of(context).colorScheme.primary;
-
-    final isPlana = round.expectedAnswer != null;
+    final isWritten = round.expectedAnswer != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -95,14 +99,13 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
           IconButton(
             icon: const Icon(Icons.volume_up),
             onPressed: _speakCurrentQuestion,
-          ),
+          )
         ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            // Progreso
             LinearProgressIndicator(
               value: (_roundIndex + 1) / exercise.rounds.length,
               color: primary,
@@ -110,100 +113,47 @@ class _ExerciseScreenState extends State<ExerciseScreen> {
               minHeight: 6,
             ),
             const SizedBox(height: 24),
-
-            // Pregunta
             Text(
               round.question,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 24),
-
-            // Si es tipo plana, mostrar input de texto
-            if (isPlana)
-              Column(
-                children: [
-                  TextField(
-                    onChanged: (value) => _userInput = value,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      labelText: 'Tu respuesta',
-                    ),
+            if (round.options.isNotEmpty) ...[
+              for (var i = 0; i < round.options.length; i++)
+                ListTile(
+                  title: Text(round.options[i]),
+                  leading: Radio<int>(
+                    value: i,
+                    groupValue: _answered && round.correctIndex == i ? i : null,
+                    onChanged: (val) {
+                      setState(() {
+                        _answered = val == round.correctIndex;
+                      });
+                    },
                   ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _answered
-                        ? null
-                        : () {
-                            final isCorrect = _userInput.trim().toLowerCase() ==
-                                round.expectedAnswer!.toLowerCase();
-
-                            setState(() => _answered = true);
-
-                            final msg = isCorrect ? '¡Correcto!' : 'Intenta de nuevo';
-                            final color = isCorrect ? Colors.green : Colors.red;
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(msg),
-                                backgroundColor: color,
-                                duration: const Duration(milliseconds: 800),
-                              ),
-                            );
-                            _tts.speak(msg);
-
-                            Future.delayed(const Duration(milliseconds: 900), _next);
-                          },
-                    child: const Text('Responder'),
-                  ),
-                ],
-              )
-            else
-              Expanded(
-                child: GridView.builder(
-                  itemCount: round.assets.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 16,
-                    crossAxisSpacing: 16,
-                    childAspectRatio: 1,
-                  ),
-                  itemBuilder: (context, i) {
-                    final bgColor = !_answered
-                        ? Colors.white
-                        : (i == round.correctIndex
-                            ? Colors.green.shade100
-                            : Colors.white);
-
-                    return GestureDetector(
-                      onTap: () => _handleAnswer(i),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: bgColor,
-                          border: Border.all(color: primary),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.all(8),
-                        child: Column(
-                          children: [
-                            Expanded(
-                              child: Image.asset(
-                                round.assets[i],
-                                fit: BoxFit.contain,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              round.options[i],
-                              style: const TextStyle(fontSize: 16),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
                 ),
+            ] else if (isWritten) ...[
+              TextField(
+                decoration: const InputDecoration(labelText: 'Tu respuesta'),
+                onChanged: (val) => _userInput = val,
               ),
+              ElevatedButton(
+                onPressed: () {
+                  final correct = round.expectedAnswer?.toLowerCase() == _userInput.toLowerCase();
+                  setState(() => _answered = correct);
+                },
+                child: const Text('Verificar'),
+              ),
+            ],
+            const Spacer(),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                ElevatedButton(onPressed: _previous, child: const Text('Anterior')),
+                ElevatedButton(onPressed: _next, child: const Text('Siguiente')),
+              ],
+            ),
           ],
         ),
       ),

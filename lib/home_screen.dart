@@ -56,22 +56,20 @@ class HomeScreen extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             itemCount: docs.length,
             itemBuilder: (context, i) {
-              final data = docs[i].data();
+              final docSnap = docs[i];
+              final profileId = docSnap.id;                       // ← ID del perfil
+              final data      = docSnap.data();
               final profile = UserProfile(
-                nombre: data['nombre'] as String?,
-                edad: data['edad'] as String?,
-                nivelHabla: data['nivelHabla'] as String?,
-                palabrasConocidas:
-                    data['palabrasConocidas'] as String?,
-                comprendeOrden: data['comprendeOrden'] as bool?,
-                comprendeTiempo: data['comprendeTiempo'] as bool?,
-                puedeDecirNombre: data['puedeDecirNombre'] as bool?,
-                sigueInstrucciones:
-                    data['sigueInstrucciones'] as bool?,
-                comprendeLoQueEscucha:
-                    data['comprendeLoQueEscucha'] as bool?,
-                respondeAlNombre:
-                    data['respondeAlNombre'] as bool?,
+                nombre:                data['nombre']               as String?,
+                edad:                  data['edad']                 as String?,
+                nivelHabla:            data['nivelHabla']           as String?,
+                palabrasConocidas:     data['palabrasConocidas']    as String?,
+                comprendeOrden:        data['comprendeOrden']       as bool?,
+                comprendeTiempo:       data['comprendeTiempo']      as bool?,
+                puedeDecirNombre:      data['puedeDecirNombre']     as bool?,
+                sigueInstrucciones:    data['sigueInstrucciones']   as bool?,
+                comprendeLoQueEscucha: data['comprendeLoQueEscucha'] as bool?,
+                respondeAlNombre:      data['respondeAlNombre']     as bool?,
               );
 
               return Card(
@@ -89,8 +87,7 @@ class HomeScreen extends StatelessWidget {
                     profile.nombre ?? 'Sin nombre',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  subtitle:
-                      Text('Nivel: ${profile.nivelHabla ?? '—'}'),
+                  subtitle: Text('Nivel: ${profile.nivelHabla ?? '—'}'),
                   trailing: const Icon(
                     Icons.arrow_forward_ios,
                     size: 16,
@@ -99,8 +96,10 @@ class HomeScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) =>
-                            ExercisesSelectionScreen(profile: profile),
+                        builder: (_) => ExercisesSelectionScreen(
+                          profile:   profile,
+                          profileId: profileId,      // ← Pasamos el ID al constructor
+                        ),
                       ),
                     );
                   },

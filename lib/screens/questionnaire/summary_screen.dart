@@ -1,5 +1,3 @@
-// lib/screens/questionnaire/summary_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -24,7 +22,6 @@ class _SummaryScreenState extends State<SummaryScreen> {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) throw Exception("Usuario no autenticado");
 
-      // Mapa con todos los campos de tu modelo
       final data = {
         'nombre'               : widget.profile.nombre,
         'edad'                 : widget.profile.edad,
@@ -39,16 +36,21 @@ class _SummaryScreenState extends State<SummaryScreen> {
         'fechaCreacion'        : FieldValue.serverTimestamp(),
       };
 
-      await FirebaseFirestore.instance
-          .collection('usuarios')
-          .doc(uid)
-          .collection('perfiles')
-          .add(data);
+      // Guardamos perfil y obtenemos su ID
+      final docRef = await FirebaseFirestore.instance
+        .collection('usuarios')
+        .doc(uid)
+        .collection('perfiles')
+        .add(data);
 
+      // Navegamos pasando profileId
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => ExercisesSelectionScreen(profile: widget.profile),
+          builder: (_) => ExercisesSelectionScreen(
+            profile: widget.profile,
+            profileId: docRef.id,  // ← aquí
+          ),
         ),
       );
     } catch (e) {
@@ -63,7 +65,6 @@ class _SummaryScreenState extends State<SummaryScreen> {
   @override
   Widget build(BuildContext context) {
     final colorPrimary = Theme.of(context).colorScheme.primary;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Resumen del perfil'),
@@ -73,64 +74,20 @@ class _SummaryScreenState extends State<SummaryScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            const Text(
-              '¡Todo listo!',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Este es el resumen de tu cuestionario:',
-              style: TextStyle(fontSize: 16, color: Colors.black54),
-            ),
+            const Text('¡Todo listo!', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             Expanded(
               child: ListView(
                 children: [
-                  _buildCard(
-                    icon: Icons.person,
-                    title: 'Nombre',
-                    value: widget.profile.nombre ?? 'No ingresado',
-                  ),
-                  _buildCard(
-                    icon: Icons.cake,
-                    title: 'Edad',
-                    value: widget.profile.edad ?? 'No seleccionada',
-                  ),
-                  _buildCard(
-                    icon: Icons.record_voice_over,
-                    title: 'Nivel de habla',
-                    value: widget.profile.nivelHabla ?? 'No seleccionado',
-                  ),
-                  _buildCard(
-                    icon: Icons.library_books,
-                    title: 'Palabras conocidas',
-                    value: widget.profile.palabrasConocidas ?? 'No seleccionadas',
-                  ),
-                  _buildCard(
-                    icon: Icons.list_alt,
-                    title: 'Comprende órdenes',
-                    value: widget.profile.comprendeOrden == true ? 'Sí' : 'No',
-                  ),
-                  _buildCard(
-                    icon: Icons.access_time,
-                    title: 'Comprende el tiempo',
-                    value: widget.profile.comprendeTiempo == true ? 'Sí' : 'No',
-                  ),
-                  _buildCard(
-                    icon: Icons.checklist,
-                    title: 'Sigue instrucciones',
-                    value: widget.profile.sigueInstrucciones == true ? 'Sí' : 'No',
-                  ),
-                  _buildCard(
-                    icon: Icons.hearing,
-                    title: 'Comprende lo que escucha',
-                    value: widget.profile.comprendeLoQueEscucha == true ? 'Sí' : 'No',
-                  ),
-                  _buildCard(
-                    icon: Icons.alarm_on,
-                    title: 'Responde al nombre',
-                    value: widget.profile.respondeAlNombre == true ? 'Sí' : 'No',
-                  ),
+                  _buildCard(Icons.person, 'Nombre', widget.profile.nombre ?? 'No ingresado'),
+                  _buildCard(Icons.cake, 'Edad', widget.profile.edad ?? 'No seleccionada'),
+                  _buildCard(Icons.record_voice_over, 'Nivel de habla', widget.profile.nivelHabla ?? 'No seleccionado'),
+                  _buildCard(Icons.library_books, 'Palabras conocidas', widget.profile.palabrasConocidas ?? 'No seleccionadas'),
+                  _buildCard(Icons.list_alt, 'Comprende órdenes', widget.profile.comprendeOrden == true ? 'Sí' : 'No'),
+                  _buildCard(Icons.access_time, 'Comprende el tiempo', widget.profile.comprendeTiempo == true ? 'Sí' : 'No'),
+                  _buildCard(Icons.checklist, 'Sigue instrucciones', widget.profile.sigueInstrucciones == true ? 'Sí' : 'No'),
+                  _buildCard(Icons.hearing, 'Comprende lo que escucha', widget.profile.comprendeLoQueEscucha == true ? 'Sí' : 'No'),
+                  _buildCard(Icons.alarm_on, 'Responde al nombre', widget.profile.respondeAlNombre == true ? 'Sí' : 'No'),
                 ],
               ),
             ),
@@ -141,24 +98,15 @@ class _SummaryScreenState extends State<SummaryScreen> {
               child: ElevatedButton.icon(
                 icon: _isSaving
                     ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2,
-                        ),
+                        width: 24, height: 24,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                       )
                     : const Icon(Icons.fitness_center, size: 24),
-                label: Text(
-                  _isSaving ? 'Guardando...' : 'Ver ejercicios',
-                  style: const TextStyle(fontSize: 18),
-                ),
+                label: Text(_isSaving ? 'Guardando...' : 'Ver ejercicios', style: const TextStyle(fontSize: 18)),
                 onPressed: _isSaving ? null : _saveProfileAndProceed,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: colorPrimary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  elevation: 2,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),
             ),
@@ -168,11 +116,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
     );
   }
 
-  Widget _buildCard({
-    required IconData icon,
-    required String title,
-    required String value,
-  }) {
+  Widget _buildCard(IconData icon, String title, String value) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 6),
       child: ListTile(
